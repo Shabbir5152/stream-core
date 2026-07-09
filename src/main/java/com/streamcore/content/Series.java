@@ -7,17 +7,25 @@ import java.util.List;
 public class Series extends Content {
     private final List<Episode> episodes;
 
-    public Series(String id, String title) {
-        super(id, title);
+    public Series(String id, String title, boolean premium) {
+        super(id, title, premium);
         this.episodes = new ArrayList<>();
     }
 
-    public Series(String id, String title, List<Episode> episodes) {
-        super(id, title);
+    public Series(String id, String title) {
+        this(id, title, false);
+    }
+
+    public Series(String id, String title, List<Episode> episodes, boolean premium) {
+        super(id, title, premium);
         if (episodes == null) {
             throw new IllegalArgumentException("Episodes list cannot be null.");
         }
         this.episodes = new ArrayList<>(episodes);
+    }
+
+    public Series(String id, String title, List<Episode> episodes) {
+        this(id, title, episodes, false);
     }
 
     public List<Episode> getEpisodes() {
