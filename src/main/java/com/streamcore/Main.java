@@ -7,7 +7,7 @@ import com.streamcore.content.Series;
 import com.streamcore.user.User;
 import com.streamcore.user.RegularUser;
 import com.streamcore.user.PremiumUser;
-import com.streamcore.subscription.PremiumPlan;
+import com.streamcore.playback.PlaybackSession;
 
 public class Main {
     public static void main(String[] args) {
@@ -20,68 +20,55 @@ public class Main {
 
         Series breakingBad = new Series("S-201", "Breaking Bad", false);
         Episode ep1 = new Episode("E-201-1", "Pilot", 1, 58, false);
-        Episode ep2 = new Episode("E-201-2", "Cat's in the Bag...", 2, 48, false);
         breakingBad.addEpisode(ep1);
-        breakingBad.addEpisode(ep2);
-
-        System.out.println("\n--- Catalog ---");
-        printContentDetails(inception);
-        printContentDetails(interstellar);
-        printContentDetails(breakingBad);
 
         User regularUser = new RegularUser("U-001", "alice", "alice@example.com");
         User premiumUser = new PremiumUser("U-002", "bob", "bob@example.com");
 
-        System.out.println("\n--- Plan Details ---");
-        printPlanDetails(regularUser);
-        printPlanDetails(premiumUser);
+        System.out.println("\n--- Playback Verification: Authorized ---");
+        PlaybackSession session = new PlaybackSession(regularUser, inception);
+        printSessionState(session);
 
-        System.out.println("\n--- Initial Access Verification ---");
-        verifyAccess(regularUser, inception);
-        verifyAccess(regularUser, interstellar);
-        verifyAccess(regularUser, breakingBad);
+        System.out.println("\nStarting playback...");
+        session.start();
+        printSessionState(session);
 
-        verifyAccess(premiumUser, inception);
-        verifyAccess(premiumUser, interstellar);
-        verifyAccess(premiumUser, breakingBad);
+        System.out.println("\nSeeking to 10 minutes (600 seconds)...");
+        session.seek(600);
+        printSessionState(session);
 
-        System.out.println("\n--- Upgrading User Plan ---");
-        System.out.println("Upgrading alice to PremiumPlan...");
-        regularUser.setSubscriptionPlan(new PremiumPlan());
-        printPlanDetails(regularUser);
+        System.out.println("\nPausing playback...");
+        session.pause();
+        printSessionState(session);
 
-        System.out.println("\n--- Post-Upgrade Access Verification ---");
-        verifyAccess(regularUser, inception);
-        verifyAccess(regularUser, interstellar);
-        verifyAccess(regularUser, breakingBad);
+        System.out.println("\nResuming playback...");
+        session.resume();
+        printSessionState(session);
+
+        System.out.println("\n--- Playback Verification: Unauthorized ---");
+        try {
+            System.out.println("Attempting to play premium content for RegularUser...");
+            PlaybackSession failedSession = new PlaybackSession(regularUser, interstellar);
+            failedSession.start();
+        } catch (IllegalStateException e) {
+            System.out.println("Caught Expected Exception: " + e.getMessage());
+        }
+
+        System.out.println("\n--- Playback Verification: Seek Out of Bounds ---");
+        try {
+            System.out.println("Attempting to seek past movie duration...");
+            session.seek(20000);
+        } catch (IllegalArgumentException e) {
+            System.out.println("Caught Expected Exception: " + e.getMessage());
+        }
     }
 
-    private static void printPlanDetails(User user) {
-        System.out.printf("User: %s | Plan: %s | Max Quality: %s\n",
-                user.getUsername(),
-                user.getSubscriptionPlan().getPlanName(),
-                user.getSubscriptionPlan().getMaxVideoQuality()
-        );
-    }
-
-    private static void verifyAccess(User user, Content content) {
-        boolean access = user.canAccess(content);
-        System.out.printf("User %s (%s) access to %s (Premium: %b): %s\n",
-                user.getUsername(),
-                user.getClass().getSimpleName(),
-                content.getTitle(),
-                content.isPremium(),
-                access ? "GRANTED" : "DENIED"
-        );
-    }
-
-    private static void printContentDetails(Content content) {
-        System.out.printf("[%s] ID: %s, Title: %s, Duration: %d mins, Premium: %b\n",
-                content.getClass().getSimpleName(),
-                content.getId(),
-                content.getTitle(),
-                content.getDuration(),
-                content.isPremium()
+    private static void printSessionState(PlaybackSession session) {
+        System.out.printf("Session - User: %s | Content: %s | Position: %d sec | Playing: %b\n",
+                session.getUser().getUsername(),
+                session.getContent().getTitle(),
+                session.getCurrentPosition(),
+                session.isPlaying()
         );
     }
 }
