@@ -7,6 +7,7 @@ import com.streamcore.content.Series;
 import com.streamcore.user.User;
 import com.streamcore.user.RegularUser;
 import com.streamcore.user.PremiumUser;
+import com.streamcore.subscription.PremiumPlan;
 
 public class Main {
     public static void main(String[] args) {
@@ -31,7 +32,11 @@ public class Main {
         User regularUser = new RegularUser("U-001", "alice", "alice@example.com");
         User premiumUser = new PremiumUser("U-002", "bob", "bob@example.com");
 
-        System.out.println("\n--- Access Control Verification ---");
+        System.out.println("\n--- Plan Details ---");
+        printPlanDetails(regularUser);
+        printPlanDetails(premiumUser);
+
+        System.out.println("\n--- Initial Access Verification ---");
         verifyAccess(regularUser, inception);
         verifyAccess(regularUser, interstellar);
         verifyAccess(regularUser, breakingBad);
@@ -39,6 +44,24 @@ public class Main {
         verifyAccess(premiumUser, inception);
         verifyAccess(premiumUser, interstellar);
         verifyAccess(premiumUser, breakingBad);
+
+        System.out.println("\n--- Upgrading User Plan ---");
+        System.out.println("Upgrading alice to PremiumPlan...");
+        regularUser.setSubscriptionPlan(new PremiumPlan());
+        printPlanDetails(regularUser);
+
+        System.out.println("\n--- Post-Upgrade Access Verification ---");
+        verifyAccess(regularUser, inception);
+        verifyAccess(regularUser, interstellar);
+        verifyAccess(regularUser, breakingBad);
+    }
+
+    private static void printPlanDetails(User user) {
+        System.out.printf("User: %s | Plan: %s | Max Quality: %s\n",
+                user.getUsername(),
+                user.getSubscriptionPlan().getPlanName(),
+                user.getSubscriptionPlan().getMaxVideoQuality()
+        );
     }
 
     private static void verifyAccess(User user, Content content) {
