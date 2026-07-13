@@ -2,11 +2,13 @@ package com.streamcore.user;
 
 import com.streamcore.subscription.SubscriptionPlan;
 import com.streamcore.content.Content;
+import com.streamcore.history.WatchHistory;
 
 public abstract class User {
     private final String id;
     private final String username;
     private final String email;
+    private final WatchHistory watchHistory;
     private SubscriptionPlan subscriptionPlan;
 
     protected User(String id, String username, String email, SubscriptionPlan subscriptionPlan) {
@@ -26,6 +28,7 @@ public abstract class User {
         this.username = username;
         this.email = email;
         this.subscriptionPlan = subscriptionPlan;
+        this.watchHistory = new WatchHistory();
     }
 
     public String getId() {
@@ -49,6 +52,10 @@ public abstract class User {
             throw new IllegalArgumentException("Subscription plan cannot be null.");
         }
         this.subscriptionPlan = subscriptionPlan;
+    }
+
+    public WatchHistory getWatchHistory() {
+        return watchHistory;
     }
 
     public boolean canAccess(Content content) {
