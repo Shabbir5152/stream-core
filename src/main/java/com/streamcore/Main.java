@@ -1,12 +1,12 @@
 package com.streamcore;
 
+import com.streamcore.content.Content;
 import com.streamcore.content.Movie;
 import com.streamcore.content.Series;
-import com.streamcore.content.Episode;
 import com.streamcore.user.User;
 import com.streamcore.user.RegularUser;
-import com.streamcore.history.WatchEntry;
-import java.time.LocalDateTime;
+import com.streamcore.user.PremiumUser;
+import com.streamcore.platform.StreamPlatform;
 
 public class Main {
     public static void main(String[] args) {
@@ -14,39 +14,51 @@ public class Main {
         System.out.println(" Welcome to StreamCore Video Platform   ");
         System.out.println("========================================");
 
+        StreamPlatform platform = new StreamPlatform();
+
         Movie inception = new Movie("M-101", "Inception", 148, "Christopher Nolan", false);
         Movie interstellar = new Movie("M-102", "Interstellar", 169, "Christopher Nolan", true);
-
         Series breakingBad = new Series("S-201", "Breaking Bad", false);
-        Episode ep1 = new Episode("E-201-1", "Pilot", 1, 58, false);
-        breakingBad.addEpisode(ep1);
 
-        User regularUser = new RegularUser("U-001", "alice", "alice@example.com");
+        platform.addContent(inception);
+        platform.addContent(interstellar);
+        platform.addContent(breakingBad);
 
-        System.out.println("\n--- Initial History State ---");
-        printUserWatchHistory(regularUser);
+        User alice = new RegularUser("U-001", "alice", "alice@example.com");
+        User bob = new PremiumUser("U-002", "bob", "bob@example.com");
 
-        System.out.println("\n--- Adding Entries to Watch History ---");
-        LocalDateTime now = LocalDateTime.of(2026, 7, 13, 22, 0);
-        regularUser.getWatchHistory().addEntry(new WatchEntry(inception, now.minusDays(2)));
-        regularUser.getWatchHistory().addEntry(new WatchEntry(ep1, now.minusHours(5)));
+        platform.registerUser(alice);
+        platform.registerUser(bob);
 
-        printUserWatchHistory(regularUser);
-    }
-
-    private static void printUserWatchHistory(User user) {
-        System.out.printf("Watch History for User: %s (%s)\n", user.getUsername(), user.getEmail());
-        var entries = user.getWatchHistory().getEntries();
-        if (entries.isEmpty()) {
-            System.out.println("  No watch history recorded.");
-            return;
-        }
-        for (WatchEntry entry : entries) {
-            System.out.printf("  - Watched: %s | Time: %s | Duration: %d mins\n",
-                    entry.getContent().getTitle(),
-                    entry.getWatchedAt(),
-                    entry.getContent().getDuration()
+        System.out.println("\n--- Displaying Platform Catalog ---");
+        for (Content item : platform.getCatalog()) {
+            System.out.printf("  - [%s] ID: %s | Title: %s | Duration: %d mins | Premium: %b\n",
+                    item.getClass().getSimpleName(),
+                    item.getId(),
+                    item.getTitle(),
+                    item.getDuration(),
+                    item.isPremium()
             );
+        }
+
+        System.out.println("\n--- Displaying Platform Users ---");
+        for (User user : platform.getUsers()) {
+            System.out.printf("  - User: %s | Email: %s | Plan: %s\n",
+                    user.getUsername(),
+                    user.getEmail(),
+                    user.getSubscriptionPlan().getPlanName()
+            );
+        }
+
+        System.out.println("\n--- Performing Catalog Lookup ---");
+        Content searchedContent = platform.getContent("M-102");
+        if (searchedContent != null) {
+            System.out.printf("  Found: %s (Premium: %b)\n", searchedContent.getTitle(), searchedContent.isPremium());
+        }
+
+        User searchedUser = platform.getUser("U-001");
+        if (searchedUser != null) {
+            System.out.printf("  Found User: %s\n", searchedUser.getUsername());
         }
     }
 }
