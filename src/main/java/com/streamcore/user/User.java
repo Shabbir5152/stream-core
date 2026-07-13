@@ -9,7 +9,7 @@ public abstract class User {
     private final String username;
     private final String email;
     private final WatchHistory watchHistory;
-    private SubscriptionPlan subscriptionPlan;
+    private volatile SubscriptionPlan subscriptionPlan;
 
     protected User(String id, String username, String email, SubscriptionPlan subscriptionPlan) {
         if (id == null || id.isBlank()) {

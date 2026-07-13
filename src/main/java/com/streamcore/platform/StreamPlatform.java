@@ -4,16 +4,16 @@ import com.streamcore.content.Content;
 import com.streamcore.user.User;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class StreamPlatform {
     private final Map<String, User> users;
     private final Map<String, Content> catalog;
 
     public StreamPlatform() {
-        this.users = new HashMap<>();
-        this.catalog = new HashMap<>();
+        this.users = new ConcurrentHashMap<>();
+        this.catalog = new ConcurrentHashMap<>();
     }
 
     public void registerUser(User user) {

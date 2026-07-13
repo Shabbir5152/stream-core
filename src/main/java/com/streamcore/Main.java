@@ -8,99 +8,136 @@ import com.streamcore.content.Series;
 import com.streamcore.user.User;
 import com.streamcore.user.UserFactory;
 import com.streamcore.playback.PlaybackSession;
-import com.streamcore.platform.StreamPlatform;
+import com.streamcore.platform.LoadBalancer;
 import com.streamcore.history.WatchEntry;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         System.out.println("========================================");
         System.out.println(" Welcome to StreamCore Video Platform   ");
         System.out.println("========================================");
 
         ContentFactory contentFactory = new ContentFactory();
         UserFactory userFactory = new UserFactory();
-        StreamPlatform platform = new StreamPlatform();
+        LoadBalancer loadBalancer = new LoadBalancer(5);
 
-        List<User> users = new ArrayList<>();
+        List<String> userIds = new ArrayList<>();
         for (int i = 1; i <= 50; i++) {
-            User user = userFactory.createRegular("U-REG-" + i, "regular_user_" + i, "reg" + i + "@example.com");
-            platform.registerUser(user);
-            users.add(user);
+            String id = "U-REG-" + i;
+            User user = userFactory.createRegular(id, "regular_user_" + i, "reg" + i + "@example.com");
+            loadBalancer.registerUser(user);
+            userIds.add(id);
         }
         for (int i = 1; i <= 50; i++) {
-            User user = userFactory.createPremium("U-PREM-" + i, "premium_user_" + i, "prem" + i + "@example.com");
-            platform.registerUser(user);
-            users.add(user);
+            String id = "U-PREM-" + i;
+            User user = userFactory.createPremium(id, "premium_user_" + i, "prem" + i + "@example.com");
+            loadBalancer.registerUser(user);
+            userIds.add(id);
         }
 
-        List<Content> catalogItems = new ArrayList<>();
+        List<String> contentIds = new ArrayList<>();
         for (int i = 1; i <= 15; i++) {
-            Movie movie = contentFactory.createMovie("M-REG-" + i, "Regular Movie " + i, 90 + i, "Director " + i, false);
-            platform.addContent(movie);
-            catalogItems.add(movie);
+            String id = "M-REG-" + i;
+            Movie movie = contentFactory.createMovie(id, "Regular Movie " + i, 90 + i, "Director " + i, false);
+            loadBalancer.addContent(movie);
+            contentIds.add(id);
         }
         for (int i = 1; i <= 15; i++) {
-            Movie movie = contentFactory.createMovie("M-PREM-" + i, "Premium Movie " + i, 100 + i, "Director " + i, true);
-            platform.addContent(movie);
-            catalogItems.add(movie);
+            String id = "M-PREM-" + i;
+            Movie movie = contentFactory.createMovie(id, "Premium Movie " + i, 100 + i, "Director " + i, true);
+            loadBalancer.addContent(movie);
+            contentIds.add(id);
         }
-
         for (int i = 1; i <= 10; i++) {
-            Series series = contentFactory.createSeries("S-REG-" + i, "Regular Series " + i, false);
+            String id = "S-REG-" + i;
+            Series series = contentFactory.createSeries(id, "Regular Series " + i, false);
             for (int e = 1; e <= 5; e++) {
                 Episode ep = contentFactory.createEpisode("E-REG-" + i + "-" + e, "Regular Ep " + e, e, 45, false);
                 series.addEpisode(ep);
             }
-            platform.addContent(series);
-            catalogItems.add(series);
+            loadBalancer.addContent(series);
+            contentIds.add(id);
         }
 
-        System.out.printf("\nInitialized Platform with %d Users and %d Catalog Items.\n",
-                platform.getUsers().size(), platform.getCatalog().size());
-
-        System.out.println("\n--- Starting High Dynamic Access Simulation ---");
-        int totalRequests = 10000;
-        int successfulSessions = 0;
-        int deniedSessions = 0;
+        System.out.println("\n--- Starting Multithreaded Load Balancer Simulation (50k Requests) ---");
+        int totalRequests = 50000;
+        ExecutorService executor = Executors.newFixedThreadPool(16);
+        AtomicInteger successfulSessions = new AtomicInteger(0);
+        AtomicInteger deniedSessions = new AtomicInteger(0);
+        AtomicInteger errors = new AtomicInteger(0);
         long startTime = System.currentTimeMillis();
 
-        Random random = new Random(42);
-        LocalDateTime baseTime = LocalDateTime.of(2026, 7, 13, 23, 0);
+        Random rand = new Random(42);
+        LocalDateTime baseTime = LocalDateTime.of(2026, 7, 14, 0, 0);
 
         for (int i = 0; i < totalRequests; i++) {
-            User user = users.get(random.nextInt(users.size()));
-            Content content = catalogItems.get(random.nextInt(catalogItems.size()));
+            final String userId = userIds.get(rand.nextInt(userIds.size()));
+            final String contentId = contentIds.get(rand.nextInt(contentIds.size()));
+            final int seed = i;
 
-            try {
-                PlaybackSession session = new PlaybackSession(user, content);
-                session.start();
-                if (random.nextBoolean()) {
-                    session.seek(random.nextInt(content.getDuration() * 60));
+            executor.submit(() -> {
+                try {
+                    User user = loadBalancer.getUser(userId);
+                    Content content = loadBalancer.getContent(contentId, userId);
+                    if (user == null || content == null) {
+                        errors.incrementAndGet();
+                        return;
+                    }
+                    try {
+                        PlaybackSession session = loadBalancer.createPlaybackSession(userId, contentId);
+                        session.start();
+                        session.seek((seed % content.getDuration()) * 60);
+                        session.pause();
+                        user.getWatchHistory().addEntry(new WatchEntry(content, baseTime.minusMinutes(seed % 1000)));
+                        successfulSessions.incrementAndGet();
+                    } catch (IllegalStateException e) {
+                        deniedSessions.incrementAndGet();
+                    }
+                } catch (Exception e) {
+                    errors.incrementAndGet();
                 }
-                session.pause();
-                user.getWatchHistory().addEntry(new WatchEntry(content, baseTime.minusMinutes(random.nextInt(10080))));
-                successfulSessions++;
-            } catch (IllegalStateException e) {
-                deniedSessions++;
+            });
+        }
+
+        executor.shutdown();
+        boolean finished = executor.awaitTermination(30, TimeUnit.SECONDS);
+        long endTime = System.currentTimeMillis();
+
+        System.out.println("Simulation Completed.");
+        System.out.printf("  Total Requests Processed: %d\n", totalRequests);
+        System.out.printf("  Access Granted Sessions : %d\n", successfulSessions.get());
+        System.out.printf("  Access Denied Sessions  : %d\n", deniedSessions.get());
+        System.out.printf("  Errors / Misses         : %d\n", errors.get());
+        System.out.printf("  Total Execution Time    : %d ms\n", (endTime - startTime));
+        System.out.printf("  Platform Throughput    : %.2f req/sec\n",
+                (double) totalRequests / ((double) (endTime - startTime) / 1000.0));
+
+        System.out.println("\n--- Load Balancer Cluster Diagnostics ---");
+        List<LoadBalancer.PlatformNode> nodes = loadBalancer.getNodes();
+        for (int i = 0; i < nodes.size(); i++) {
+            LoadBalancer.PlatformNode node = nodes.get(i);
+            System.out.printf("  Node #%d | Response Time Metric: %d ns | Users Registered: %d\n",
+                    i + 1,
+                    node.getResponseTimeNanos(),
+                    node.getPlatform().getUsers().size()
+            );
+        }
+
+        int totalHistoryRecords = 0;
+        for (String uId : userIds) {
+            User u = loadBalancer.getUser(uId);
+            if (u != null) {
+                totalHistoryRecords += u.getWatchHistory().getEntries().size();
             }
         }
-
-        long endTime = System.currentTimeMillis();
-        System.out.println("Simulation Completed.");
-        System.out.printf("  Total Playback Requests: %d\n", totalRequests);
-        System.out.printf("  Access Granted Sessions : %d\n", successfulSessions);
-        System.out.printf("  Access Denied Sessions  : %d\n", deniedSessions);
-        System.out.printf("  Execution Time          : %d ms\n", (endTime - startTime));
-
-        System.out.println("\n--- Verifying Watch History Integrity ---");
-        int totalHistoryRecords = 0;
-        for (User user : platform.getUsers()) {
-            totalHistoryRecords += user.getWatchHistory().getEntries().size();
-        }
-        System.out.printf("  Total Watch History Entries Across All Users: %d\n", totalHistoryRecords);
+        System.out.printf("\n  Total Watch History Entries Across Cluster: %d\n", totalHistoryRecords);
     }
 }

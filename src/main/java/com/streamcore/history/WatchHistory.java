@@ -1,14 +1,14 @@
 package com.streamcore.history;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class WatchHistory {
     private final List<WatchEntry> entries;
 
     public WatchHistory() {
-        this.entries = new ArrayList<>();
+        this.entries = new CopyOnWriteArrayList<>();
     }
 
     public void addEntry(WatchEntry entry) {
