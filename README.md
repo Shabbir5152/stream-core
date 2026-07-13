@@ -201,7 +201,7 @@ mvn clean test
 ```
 
 ### 4. Execute Concurrency and Load Balancer Simulation
-Run the simulation task processing for high volume concurrent access. 50,000 dynamic requests using 16 concurrent threads across 5 cluster nodes:
+Run the simulation task processing for high volume concurrent access.
 ```bash
 mvn exec:java
 ```
